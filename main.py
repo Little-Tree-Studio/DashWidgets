@@ -80,6 +80,7 @@ import maliang
 from loguru import logger
 from maliang import toolbox
 from maliang.core import configs
+from app.path import LOGO_PATH
 
 def load_fonts():
     if toolbox.load_font("./assets/fonts/HarmonyOS_Sans_SC_Regular.ttf"):
@@ -88,12 +89,14 @@ def load_fonts():
     else:
         logger.warning("Failed to load font: HarmonyOS Sans SC Regular")
 def main_window():
-    root = maliang.Tk(title="DashWidgets 主窗口", icon="./assets/images/icon.ico")
+    root = maliang.Tk(title="DashWidgets 主窗口", icon=str(LOGO_PATH))
     
     main_canvas = maliang.Canvas(root, width=1080, height=720)
     main_canvas.place(x=0, y=0)
     
     maliang.Text(main_canvas, text="Hello, DashWidgets!", position=(5,5),fontsize=24)
+    
+    
     
     root.mainloop()
 
