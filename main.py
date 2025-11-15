@@ -77,12 +77,27 @@ __website__ = "https://zsxiaoshu.cn/"
 
 
 import maliang
+from loguru import logger
+from maliang import toolbox
+from maliang.core import configs
 
-def main():
+def load_fonts():
+    if toolbox.load_font("./assets/fonts/HarmonyOS_Sans_SC_Regular.ttf"):
+        configs.Font.family = "HarmonyOS Sans SC"
+        logger.info("Loaded font: HarmonyOS Sans SC Regular")
+    else:
+        logger.warning("Failed to load font: HarmonyOS Sans SC Regular")
+def main_window():
     root = maliang.Tk(title="DashWidgets 主窗口", icon="./assets/images/icon.ico")
+    
+    main_canvas = maliang.Canvas(root, width=1080, height=720)
+    main_canvas.pack()
+    
+    maliang.Text(main_canvas, text="Hello, DashWidgets!", position=(0,0))
     
     root.mainloop()
 
 
 if __name__ == "__main__":
-    main()
+    load_fonts()
+    main_window()
