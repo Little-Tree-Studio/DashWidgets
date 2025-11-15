@@ -91,9 +91,9 @@ def main_window():
     root = maliang.Tk(title="DashWidgets 主窗口", icon="./assets/images/icon.ico")
     
     main_canvas = maliang.Canvas(root, width=1080, height=720)
-    main_canvas.pack()
+    main_canvas.place(x=0, y=0)
     
-    maliang.Text(main_canvas, text="Hello, DashWidgets!", position=(0,0))
+    maliang.Text(main_canvas, text="Hello, DashWidgets!", position=(5,5),fontsize=24)
     
     root.mainloop()
 
