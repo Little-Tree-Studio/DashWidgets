@@ -1,6 +1,3 @@
-# Eclipse Public License 2.0 Copyright Header Template
-# Provided by Little Tree Studio
-
 # =============================================================================
 # Copyright (c) 2025 Little Tree Studio
 # 
