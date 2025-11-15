@@ -20,14 +20,7 @@
 """
 File Description
 ==============================================================================
-Please add detailed functional descriptions for this file, including but not
-limited to:
-- Main purpose and responsibilities of the file
-- Core classes, functions, or modules contained
-- Dependencies on other files
-- Usage examples (optional)
-- Version change history
-- Any important technical notes or considerations
+The main entry point for the DashWidgets application.
 
 @author: Little Tree Studio
 @contact: studio@zsxiaoshu.cn
