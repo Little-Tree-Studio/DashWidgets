@@ -64,6 +64,18 @@ The main entry point for the DashWidgets application.
 
 
 
+import customtkinter as ctk
+import tkinter as tk
+import tkinter.font as tkfont
+from loguru import logger
+from app.path import LOGO_PATH, FONTS_PATH
+import datetime
+import random
+import json
+from pathlib import Path
+from PIL import Image, ImageDraw, ImageFont
+import threading
+
 __author__ = "Little Tree Studio"
 __copyright__ = "Copyright (c) 2025 Little Tree Studio"
 __license__ = "EPL-2.0"
@@ -75,15 +87,17 @@ __project__ = "DashWidgets"
 __repository__ = "https://github.com/Little-Tree-Studio/DashWidgets"
 __website__ = "https://zsxiaoshu.cn/"
 
+# 配置日志系统
+log_dir = Path.home() / ".dashwidgets" / "logs"
+log_dir.mkdir(parents=True, exist_ok=True)
 
-import customtkinter as ctk
-import tkinter as tk
-from loguru import logger
-from app.path import LOGO_PATH, ICONS_PATH
-import datetime
-import random
-from PIL import Image
-import threading
+logger.add(
+    log_dir / "dashwidgets_{time:YYYY-MM-DD}.log",
+    rotation="00:00",
+    retention="7 days",
+    level="INFO",
+    encoding="utf-8"
+)
 
 
 class ThemeColors:
@@ -98,29 +112,29 @@ class ThemeColors:
 
     def _update_colors(self):
         if self.light_mode:
-            # 浅色主题
-            self.bg_main = "#F5F5F7"           # 主背景
-            self.bg_card = "#FFFFFF"            # 卡片背景
-            self.bg_nav = "#FFFFFF"             # 导航栏背景
-            self.bg_hint = "#F0F0F0"           # 提示框背景
-            self.bg_input = "#F8F9FA"          # 输入框背景
-            self.text_primary = "#333333"          # 主要文字
-            self.text_secondary = "#666666"       # 次要文字
-            self.text_hint = "#999999"            # 提示文字
-            self.border = "#E0E0E0"             # 边框颜色
-            self.accent = "#007AFF"              # 强调色
+            # 浅色主题 - 浅黄色磨砂玻璃效果
+            self.bg_main = "#FFFDE7"           # 主背景 - 浅黄色
+            self.bg_card = "#FFFDE7"          # 卡片背景 - 浅黄色
+            self.bg_nav = "#FFF9C4"          # 导航栏背景 - 浅黄色
+            self.bg_hint = "#FFF59D"        # 提示框背景
+            self.bg_input = "#FFEE58"        # 输入框背景
+            self.text_primary = "#2D2D2D"          # 主要文字
+            self.text_secondary = "#5A5A5A"       # 次要文字
+            self.text_hint = "#757575"            # 提示文字
+            self.border = "#FFD54F"            # 边框颜色 - 柔和黄色
+            self.accent = "#FFA000"              # 强调色 - 金橙色
         else:
-            # 深色主题
-            self.bg_main = "#1C1C1E"           # 主背景
-            self.bg_card = "#2C2C2E"           # 卡片背景
-            self.bg_nav = "#2C2C2E"            # 导航栏背景
-            self.bg_hint = "#3A3A3C"           # 提示框背景
-            self.bg_input = "#3A3A3C"          # 输入框背景
-            self.text_primary = "#FFFFFF"          # 主要文字
-            self.text_secondary = "#A1A1A6"      # 次要文字
-            self.text_hint = "#8E8E93"           # 提示文字
-            self.border = "#38383A"             # 边框颜色
-            self.accent = "#0A84FF"              # 强调色
+            # 深色主题 - 暗黄色磨砂玻璃效果
+            self.bg_main = "#263238"           # 主背景 - 深灰蓝色
+            self.bg_card = "#37474F"         # 卡片背景
+            self.bg_nav = "#455A64"         # 导航栏背景
+            self.bg_hint = "#546E7A"        # 提示框背景
+            self.bg_input = "#607D8B"        # 输入框背景
+            self.text_primary = "#FFFDE7"          # 主要文字 - 浅黄色
+            self.text_secondary = "#FFF59D"      # 次要文字 - 浅黄色
+            self.text_hint = "#FFE082"           # 提示文字 - 浅黄色
+            self.border = "#FFB300"             # 边框颜色 - 金黄色
+            self.accent = "#FFD54F"              # 强调色 - 浅金色
 
 
 def load_fonts():
@@ -128,16 +142,26 @@ def load_fonts():
     try:
         ctk.CTkFont("HarmonyOS Sans SC")
         logger.info("Font loaded: HarmonyOS Sans SC Regular")
-    except:
-        logger.warning("Font not found, using default font")
+    except Exception as e:
+        logger.warning(f"Font not found, using default font: {e}")
 
 
 # 全局字体设置
-current_font_family = None
+_current_font_family = None
+
+def get_current_font_family():
+    """获取当前字体"""
+    return _current_font_family
+
+def set_font_family(font_name):
+    """设置全局字体"""
+    global _current_font_family
+    _current_font_family = font_name
+    logger.info(f"字体已设置为: {font_name}")
 
 def get_font(size, bold=False):
     """获取字体，支持自定义字体"""
-    global current_font_family
+    global _current_font_family
 
     # 可用字体列表
     font_names = [
@@ -154,12 +178,11 @@ def get_font(size, bold=False):
     font_family = font_names[0]  # 默认使用华为鸿蒙字体
 
     # 如果设置了自定义字体，优先使用
-    if current_font_family:
-        font_family = current_font_family
+    if _current_font_family and _current_font_family != "系统默认":
+        font_family = _current_font_family
     else:
         # 尝试找到可用的字体
-        import tkinter as tk
-        available_fonts = tk.font.families()
+        available_fonts = tkfont.families()
         for font_name in font_names:
             if font_name in available_fonts:
                 font_family = font_name
@@ -168,19 +191,15 @@ def get_font(size, bold=False):
     weight = "bold" if bold else "normal"
     return (font_family, size, weight)
 
-def set_font_family(font_name):
-    """设置全局字体"""
-    global current_font_family
-    current_font_family = font_name
-
 
 class WidgetTemplate:
     """组件模板基类"""
-    def __init__(self, name, description, icon_name, size="medium"):
+    def __init__(self, name, description, icon_name, size="medium", shape="rectangle"):
         self.name = name
         self.description = description
         self.icon_name = icon_name
         self.size = size  # small, medium, large
+        self.shape = shape  # rectangle, rounded, circle, capsule
 
     def get_size_dimensions(self):
         """获取组件尺寸"""
@@ -191,17 +210,45 @@ class WidgetTemplate:
         }
         return size_map.get(self.size, (200, 200))
 
+    def get_shape_radius(self):
+        """获取形状的圆角半径"""
+        radius_map = {
+            "rectangle": 0,
+            "rounded": 20,
+            "circle": None,  # 完全圆形
+            "capsule": 50   # 胶囊形
+        }
+        return radius_map.get(self.shape, 0)
+
+
+# 可用的组件图标列表
+WIDGET_ICONS = [
+    "🕐", "🌤", "📝", "📌", "📊", "📅", "⏱", "💱",
+    "⭐", "❤️", "🔥", "💡", "🎯", "🚀", "💎", "🎨",
+    "🎵", "📷", "🎮", "🏃", "🍎", "🍔", "🚗", "✈️",
+    "🌙", "☀️", "🌈", "⚡", "🔮", "💻", "📱", "🎁",
+    "🏠", "🌍", "🌺", "🍀", "🌻", "🌲", "🍁", "❄️",
+    "👋", "😊", "😎", "🤔", "🎉", "🔔", "📌", "✏️"
+]
 
 # 示例组件模板
 WIDGET_TEMPLATES = [
-    WidgetTemplate("时钟", "显示当前时间", "🕐", "medium"),
-    WidgetTemplate("天气", "显示天气信息", "🌤", "medium"),
-    WidgetTemplate("待办事项", "管理每日任务", "📝", "large"),
-    WidgetTemplate("笔记", "快速记录想法", "📌", "medium"),
-    WidgetTemplate("系统监控", "显示CPU、内存使用率", "📊", "small"),
-    WidgetTemplate("日历", "显示当前日期", "📅", "medium"),
-    WidgetTemplate("计时器", "倒计时功能", "⏱", "small"),
-    WidgetTemplate("汇率", "汇率查询", "💱", "medium"),
+    WidgetTemplate("时钟", "显示当前时间", "🕐", "medium", "rounded"),
+    WidgetTemplate("天气", "显示天气信息", "🌤", "medium", "rounded"),
+    WidgetTemplate("待办事项", "管理每日任务", "📝", "large", "rectangle"),
+    WidgetTemplate("笔记", "快速记录想法", "📌", "medium", "rounded"),
+    WidgetTemplate("系统监控", "显示CPU、内存使用率", "📊", "small", "rounded"),
+    WidgetTemplate("日历", "显示当前日期", "📅", "medium", "circle"),
+    WidgetTemplate("计时器", "倒计时功能", "⏱", "small", "circle"),
+    WidgetTemplate("汇率", "汇率查询", "💱", "medium", "rounded"),
+]
+
+# 可用的组件形状选项
+WIDGET_SHAPES = [
+    ("rectangle", "矩形", 0),
+    ("rounded", "圆角矩形", 20),
+    ("circle", "圆形", None),
+    ("capsule", "胶囊形", 50)
 ]
 
 
@@ -237,22 +284,81 @@ class DraggableWidget:
         self.window.geometry(f"{width}x{height}")
         self.window.overrideredirect(True)  # 无边框
         self.window.attributes('-topmost', True)  # 始终置顶
+        self.window.attributes('-alpha', 0.88)  # 88% 透明度 - 磨砂玻璃效果
         self.window.geometry(f"+{x}+{y}")
         self.window.resizable(False, False)
 
         # 待办事项数据
         if template.name == "待办事项":
-            self.todos = [["完成项目设计", False], ["准备会议材料", False], ["回复邮件", False]]
+            self.todos = self._load_todos() or [["完成项目设计", False], ["准备会议材料", False], ["回复邮件", False]]
 
-        # 使用 Canvas 作为主容器
-        self.canvas = tk.Canvas(
-            self.window,
-            width=width,
-            height=height,
-            bg="#FFFFFF",
-            highlightbackground="#E0E0E0",
-            highlightthickness=1
-        )
+        # 浅黄色磨砂玻璃效果背景色
+        glass_bg_light = "#FFFDE7"  # 浅黄色
+        glass_border_light = "#FFD54F"
+
+        # 根据形状创建 Canvas
+        if template.shape == "circle":
+            # 圆形组件
+            _ = min(width, height) // 2  # radius - 保留用于可能的圆形裁剪扩展
+            self.canvas = tk.Canvas(
+                self.window,
+                width=width,
+                height=height,
+                bg=glass_bg_light,
+                highlightbackground=glass_border_light,
+                highlightthickness=1,
+                relief="flat"
+            )
+            self.canvas.pack(fill="both", expand=True)
+
+            # 绘制圆形蒙版（通过创建一个带圆角的矩形模拟）
+            # tkinter Canvas 不直接支持圆形裁剪，这里用圆角矩形模拟
+            self.canvas.create_rounded_rect = lambda x0, y0, x1, y1, r: self.canvas.create_polygon(
+                x0 + r, y0,
+                x1 - r, y0,
+                x1, y0,
+                x1, y0 + r,
+                x1, y1 - r,
+                x1, y1,
+                x1 - r, y1,
+                x0 + r, y1,
+                x0, y1,
+                x0, y1 - r,
+                x0, y0 + r,
+                x0, y0,
+                smooth=True
+            )
+
+            # 设置圆角窗口（Windows平台）
+            try:
+                import ctypes
+                # Windows API 设置圆角窗口
+                hwnd = ctypes.windll.user32.GetParent(self.window.winfo_id())
+                DWMWA_WINDOW_CORNER_PREFERENCE = 33
+
+                ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                    hwnd,
+                    DWMWA_WINDOW_CORNER_PREFERENCE,
+                    ctypes.byref(ctypes.c_int(2)),  # DWMWCP_ROUND
+                    4
+                )
+            except:
+                pass
+
+        else:
+            # 矩形/圆角矩形/胶囊形
+            _ = template.get_shape_radius()  # radius - 保留用于可能的扩展
+            self.canvas = tk.Canvas(
+                self.window,
+                width=width,
+                height=height,
+                bg=glass_bg_light,  # 半透明背景
+                highlightbackground=glass_border_light,
+                highlightthickness=1,
+                relief="flat"
+            )
+            self.canvas.pack(fill="both", expand=True)
+
         self.canvas.pack(fill="both", expand=True)
 
         # 创建组件内容
@@ -313,11 +419,15 @@ class DraggableWidget:
             self._create_exchange_widget(canvas, width, height)
 
     def _create_clock_widget(self, canvas, width, height):
-        """创建时钟组件"""
+        """创建时钟组件 - 液态玻璃效果"""
         # 根据组件大小计算字体大小
         icon_size = int(width * 0.2)
         time_size = int(width * 0.12)
         date_size = int(width * 0.05)
+
+        # 液态玻璃效果颜色
+        text_primary = "#1A1A1A"
+        text_secondary = "#4A5568"
 
         # 时钟图标
         canvas.create_text(width//2, height//3, text=self.template.icon_name, font=("Segoe UI Emoji", icon_size))
@@ -327,7 +437,7 @@ class DraggableWidget:
             width//2, height//2 + height//10,
             text=datetime.datetime.now().strftime("%H:%M:%S"),
             font=get_font(time_size, bold=True),
-            fill="#333333"
+            fill=text_primary
         )
 
         # 日期
@@ -335,7 +445,7 @@ class DraggableWidget:
             width//2, height - height//7,
             text=datetime.datetime.now().strftime("%Y年%m月%d日"),
             font=get_font(date_size),
-            fill="#666666"
+            fill=text_secondary
         )
 
         # 定时更新
@@ -343,21 +453,31 @@ class DraggableWidget:
 
     def _update_clock(self):
         """更新时钟"""
+        if not hasattr(self, 'window') or not self.window.winfo_exists():
+            return
+
         if hasattr(self, 'time_text'):
             current_time = datetime.datetime.now().strftime("%H:%M:%S")
             try:
                 self.canvas.itemconfig(self.time_text, text=current_time)
-            except:
-                pass
+            except Exception as e:
+                logger.warning(f"更新时钟失败: {e}")
+                return
+
             self.window.after(1000, self._update_clock)
 
     def _create_weather_widget(self, canvas, width, height):
-        """创建天气组件"""
+        """创建天气组件 - 液态玻璃效果"""
         # 根据组件大小计算字体大小
         icon_size = int(width * 0.25)
         temp_size = int(width * 0.14)
         desc_size = int(width * 0.06)
         loc_size = int(width * 0.05)
+
+        # 液态玻璃效果颜色
+        text_secondary = "#4A5568"
+        text_hint = "#6B7280"
+        accent_color = "#3B82F6"
 
         # 天气图标
         canvas.create_text(width//2, height//3, text=self.template.icon_name, font=("Segoe UI Emoji", icon_size))
@@ -367,7 +487,7 @@ class DraggableWidget:
             width//2, height//2 + height//15,
             text="25°C",
             font=get_font(temp_size, bold=True),
-            fill="#FF6B35"
+            fill=accent_color
         )
 
         # 天气描述
@@ -375,7 +495,7 @@ class DraggableWidget:
             width//2, height//2 + height//6,
             text="晴朗",
             font=get_font(desc_size),
-            fill="#666666"
+            fill=text_secondary
         )
 
         # 地点
@@ -383,11 +503,11 @@ class DraggableWidget:
             width//2, height - height//10,
             text="📍 北京市",
             font=get_font(loc_size),
-            fill="#999999"
+            fill=text_hint
         )
 
     def _create_todo_widget(self, canvas, width, height):
-        """创建待办事项组件"""
+        """创建待办事项组件 - 液态玻璃效果"""
         # 根据组件大小计算字体和位置
         title_size = int(width * 0.07)
         title_y = int(height * 0.1)
@@ -396,17 +516,22 @@ class DraggableWidget:
         btn_y = height - btn_height - int(height * 0.05)
         btn_text_size = int(width * 0.04)
 
+        # 液态玻璃效果颜色
+        text_primary = "#1A1A1A"
+        border_color = "#BFDBFE"
+        accent_color = "#3B82F6"
+
         # 标题
         canvas.create_text(
             width//2, title_y,
             text="📝 待办事项",
             font=get_font(title_size, bold=True),
-            fill="#333333"
+            fill=text_primary
         )
 
         # 分隔线
         margin = int(width * 0.1)
-        canvas.create_line(margin, line_y, width-margin, line_y, fill="#E0E0E0", width=1)
+        canvas.create_line(margin, line_y, width-margin, line_y, fill=border_color, width=1)
 
         # 待办事项列表
         self._render_todo_list(canvas, width, height)
@@ -416,7 +541,7 @@ class DraggableWidget:
         canvas.create_rectangle(
             width//2 - btn_width//2, btn_y,
             width//2 + btn_width//2, btn_y + btn_height,
-            fill="#007AFF",
+            fill=accent_color,
             outline=""
         )
         add_btn_text = canvas.create_text(
@@ -438,11 +563,15 @@ class DraggableWidget:
         start_y = int(height * 0.2)
         font_size = int(width * 0.04)
 
+        # 液态玻璃效果颜色
+        text_primary = "#1A1A1A"
+        text_completed = "#6B7280"
+
         y_pos = start_y
         for i, (todo, completed) in enumerate(self.todos):
             # 待办事项文本
             text = f"☑ {todo}" if completed else f"☐ {todo}"
-            color = "#999999" if completed else "#333333"
+            color = text_completed if completed else text_primary
 
             todo_text = canvas.create_text(
                 margin, y_pos,
@@ -454,12 +583,13 @@ class DraggableWidget:
             )
 
             # 绑定点击事件
-            canvas.tag_bind(todo_text, "<Button-1>", lambda e, idx=i: self._toggle_todo(idx))
+            canvas.tag_bind(todo_text, "<Button-1>", lambda _, idx=i: self._toggle_todo(idx))
 
             y_pos += line_height
 
     def _add_todo(self, event=None):
         """添加新的待办事项"""
+        _ = event  # 未使用，保留以兼容事件处理
         from tkinter import simpledialog
 
         new_todo = simpledialog.askstring(
@@ -469,20 +599,57 @@ class DraggableWidget:
         )
 
         if new_todo and new_todo.strip():
-            self.todos.append([new_todo.strip(), False])
+            todo_text = new_todo.strip()
+            # 限制长度以避免UI显示问题
+            if len(todo_text) > 100:
+                todo_text = todo_text[:100] + "..."
+                from tkinter import messagebox
+                messagebox.showwarning("提示", "待办事项过长，已截断为100字符", parent=self.window)
+
+            self.todos.append([todo_text, False])
             self._render_todo_list(self.canvas, self.width, self.height)
+            self._save_todos()  # 持久化保存
 
     def _toggle_todo(self, index):
         """切换待办事项完成状态"""
         if 0 <= index < len(self.todos):
             self.todos[index][1] = not self.todos[index][1]
             self._render_todo_list(self.canvas, self.width, self.height)
+            self._save_todos()
 
     def _delete_todo(self, index):
         """删除待办事项"""
         if 0 <= index < len(self.todos):
             self.todos.pop(index)
             self._render_todo_list(self.canvas, self.width, self.height)
+            self._save_todos()
+
+    def _save_todos(self):
+        """保存待办事项到文件"""
+        data_dir = Path.home() / ".dashwidgets"
+        data_dir.mkdir(exist_ok=True)
+        todo_file = data_dir / "todos.json"
+
+        try:
+            data = {'todos': self.todos}
+            with open(todo_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            logger.error(f"保存待办事项失败: {e}")
+
+    def _load_todos(self):
+        """加载保存的待办事项"""
+        data_dir = Path.home() / ".dashwidgets"
+        todo_file = data_dir / "todos.json"
+
+        if todo_file.exists():
+            try:
+                with open(todo_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    return data.get('todos', [])
+            except Exception as e:
+                logger.warning(f"加载待办事项失败: {e}")
+        return None
 
     def _clear_completed_todos(self):
         """清空已完成的待办事项"""
@@ -547,9 +714,27 @@ class DraggableWidget:
     def _save_note(self):
         """保存笔记"""
         note_content = self.note_text.get("1.0", "end-1c")
-        # TODO: 实现持久化保存到文件或数据库
-        from tkinter import messagebox
-        messagebox.showinfo("笔记已保存", "笔记内容已保存！", parent=self.window)
+
+        # 创建数据目录
+        data_dir = Path.home() / ".dashwidgets"
+        data_dir.mkdir(exist_ok=True)
+
+        # 保存笔记到文件
+        note_file = data_dir / "notes.json"
+        try:
+            data = {}
+            if note_file.exists():
+                with open(note_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+
+            data['note'] = note_content
+            with open(note_file, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+
+            from tkinter import messagebox
+            messagebox.showinfo("笔记已保存", "笔记内容已保存！", parent=self.window)
+        except Exception as e:
+            logger.error(f"保存笔记失败: {e}")
 
     def _create_system_monitor_widget(self, canvas, width, height):
         """创建系统监控组件"""
@@ -931,6 +1116,7 @@ class DraggableWidget:
 
     def _end_resize(self, event):
         """结束调整大小"""
+        _ = event  # 未使用，保留以兼容事件处理
         if self.resizing:
             self.resizing = False
             self.resize_edge = None
@@ -948,18 +1134,8 @@ class DraggableWidget:
         w, h = self.width, self.height
         m = self.resize_margin
 
-        # 检测鼠标在哪个边缘
+        # 先检测角落（优先级更高）
         edge = None
-        if y < m:
-            edge = 'n' if x < m else 's' if x > h - m else 'n'
-        elif y > h - m:
-            edge = 's' if x < m else 's' if x > w - m else 's'
-        elif x < m:
-            edge = 'w'
-        elif x > w - m:
-            edge = 'e'
-
-        # 检测角落
         if x < m and y < m:
             edge = 'nw'
         elif x > w - m and y < m:
@@ -968,6 +1144,15 @@ class DraggableWidget:
             edge = 'sw'
         elif x > w - m and y > h - m:
             edge = 'se'
+        # 然后检测边缘
+        elif y < m:
+            edge = 'n'
+        elif y > h - m:
+            edge = 's'
+        elif x < m:
+            edge = 'w'
+        elif x > w - m:
+            edge = 'e'
 
         # 更新光标
         if edge:
@@ -1017,8 +1202,14 @@ class DraggableWidget:
         current_y = self.window.winfo_y()
 
         # 计算居中位置
-        new_x = current_x + (self.width - target_width) // 2
-        new_y = current_y + (self.height - target_height) // 2
+        new_x = max(0, current_x + (self.width - target_width) // 2)
+        new_y = max(0, current_y + (self.height - target_height) // 2)
+
+        # 确保窗口不会超出屏幕
+        screen_width = self.window.winfo_screenwidth()
+        screen_height = self.window.winfo_screenheight()
+        new_x = min(new_x, screen_width - target_width)
+        new_y = min(new_y, screen_height - target_height)
 
         # 更新尺寸
         self.width = target_width
@@ -1047,8 +1238,20 @@ class DashWidgetsApp:
     """主应用程序类"""
 
     def __init__(self):
+        # 加载已保存的设置
+        settings = self._load_settings()
+
         # 设置外观
-        ctk.set_appearance_mode("light")
+        theme = settings.get('theme', '浅色')
+        if theme == '深色':
+            ctk.set_appearance_mode("dark")
+            self.light_mode = False
+        elif theme == '跟随系统':
+            self._apply_system_theme()
+        else:
+            ctk.set_appearance_mode("light")
+            self.light_mode = True
+
         ctk.set_default_color_theme("blue")
 
         # 创建主窗口（控制面板）
@@ -1058,6 +1261,10 @@ class DashWidgetsApp:
         self.root.resizable(True, True)
         self.root.minsize(900, 500)
 
+        # 设置主窗口透明度
+        opacity = settings.get('opacity', 95) / 100
+        self.root.attributes('-alpha', opacity)
+
         try:
             self.root.iconbitmap(str(LOGO_PATH))
         except:
@@ -1065,7 +1272,7 @@ class DashWidgetsApp:
 
         self.active_widgets = []  # 已激活的组件列表
         self.light_mode = True  # 当前是否为浅色模式
-        self.theme = ThemeColors(light_mode=True)  # 主题颜色
+        self.theme = ThemeColors(light_mode=self.light_mode)  # 主题颜色
 
         # 创建托盘图标
         self.tray_icon = None
@@ -1073,6 +1280,49 @@ class DashWidgetsApp:
 
         self._create_ui()
         self._create_tray_icon()
+
+    def _load_settings(self):
+        """加载设置"""
+        data_dir = Path.home() / ".dashwidgets"
+        settings_file = data_dir / "settings.json"
+
+        if settings_file.exists():
+            try:
+                with open(settings_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception as e:
+                logger.warning(f"加载设置失败: {e}")
+        return {}
+
+    def _apply_system_theme(self):
+        """应用系统主题"""
+        import platform
+        system = platform.system()
+        if system == "Darwin":  # macOS
+            try:
+                import darkdetect
+                mode = darkdetect.theme()
+                is_dark = mode == "Dark"
+                ctk.set_appearance_mode("dark" if is_dark else "light")
+                self.light_mode = not is_dark
+            except:
+                ctk.set_appearance_mode("light")
+                self.light_mode = True
+        elif system == "Windows":
+            try:
+                import winreg
+                key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize')
+                value, _ = winreg.QueryValueEx(key, 'AppsUseLightTheme')
+                is_light = bool(value)
+                ctk.set_appearance_mode("dark" if not is_light else "light")
+                self.light_mode = is_light
+                winreg.CloseKey(key)
+            except:
+                ctk.set_appearance_mode("light")
+                self.light_mode = True
+        else:
+            ctk.set_appearance_mode("light")
+            self.light_mode = True
 
     def _create_ui(self):
         """创建用户界面"""
@@ -1299,6 +1549,12 @@ class DashWidgetsApp:
 
     def create_widget(self, template):
         """创建桌面组件"""
+        # 显示设置对话框（图标+形状）
+        selected_icon, selected_shape = self._show_widget_settings(template)
+
+        if not selected_icon:
+            return  # 用户取消了选择
+
         # 移除欢迎提示
         if hasattr(self, 'welcome_label') and self.welcome_label.winfo_exists():
             self.welcome_label.destroy()
@@ -1310,14 +1566,215 @@ class DashWidgetsApp:
         else:
             size = template.size
 
+        # 创建带有选定图标和形状的新模板
+        custom_template = WidgetTemplate(
+            template.name,
+            template.description,
+            selected_icon,
+            size,
+            selected_shape
+        )
+
         # 创建可拖拽的组件，使用自定义尺寸
-        widget = DraggableWidget(self.root, template, size=size)
+        widget = DraggableWidget(self.root, custom_template, size=size)
 
         # 在列表中添加记录
-        self._add_widget_to_list(template, widget, size)
+        self._add_widget_to_list(custom_template, widget, size)
 
         self.active_widgets.append(widget)
         self._update_stats()
+
+    def _show_widget_settings(self, template):
+        """显示组件设置对话框（图标和形状选择）"""
+        # 创建对话框窗口
+        dialog = ctk.CTkToplevel(self.root)
+        dialog.title(f"设置 {template.name}")
+        dialog.geometry("650x550")
+        dialog.resizable(False, False)
+
+        # 设置窗口为模态对话框
+        dialog.transient(self.root)
+        dialog.grab_set()
+
+        # 存储选中的图标和形状
+        selected_icon = [template.icon_name]  # 默认图标
+        selected_shape = [template.shape]  # 默认形状
+
+        # 主容器
+        main_container = ctk.CTkFrame(dialog, corner_radius=12, fg_color=self.theme.bg_main)
+        main_container.pack(fill="both", expand=True, padx=20, pady=20)
+
+        # 标题
+        title_label = ctk.CTkLabel(
+            main_container,
+            text=f"设置 {template.name}",
+            font=("Arial", 18, "bold"),
+            text_color=self.theme.text_primary
+        )
+        title_label.pack(pady=(0, 15))
+
+        # 形状选择区域
+        shape_frame = ctk.CTkFrame(main_container, corner_radius=8, fg_color=self.theme.bg_hint)
+        shape_frame.pack(fill="x", pady=(0, 15))
+
+        ctk.CTkLabel(
+            shape_frame,
+            text="选择组件形状:",
+            font=("Arial", 12, "bold"),
+            text_color=self.theme.text_primary
+        ).pack(anchor="w", padx=10, pady=10)
+
+        # 形状选项按钮
+        shape_buttons_frame = ctk.CTkFrame(shape_frame, fg_color="transparent")
+        shape_buttons_frame.pack(fill="x", padx=10, pady=(0, 10))
+
+        # 获取父窗口的背景色用于Canvas
+        canvas_bg = shape_frame.cget("fg_color")
+        if canvas_bg == "transparent" or not canvas_bg:
+            canvas_bg = self.theme.surface
+
+        shape_vars = []
+        for i, (shape_key, shape_name, _) in enumerate(WIDGET_SHAPES):
+            var = tk.StringVar(value=shape_key if shape_key == template.shape else "")
+            shape_vars.append(var)
+
+            # 绘制形状预览
+            preview_width, preview_height = 80, 80
+            preview_canvas = tk.Canvas(
+                shape_buttons_frame,
+                width=preview_width,
+                height=preview_height + 30,
+                bg=canvas_bg,
+                highlightthickness=0
+            )
+            preview_canvas.grid(row=0, column=i, padx=10, pady=5)
+
+            # 绘制形状预览
+            x1, y1 = 10, 10
+            x2, y2 = preview_width - 10, preview_height - 10
+
+            if shape_key == "circle":
+                # 圆形
+                preview_canvas.create_oval(x1, y1, x2, y2, fill=self.theme.border, outline="")
+            elif shape_key == "rectangle":
+                # 矩形
+                preview_canvas.create_rectangle(x1, y1, x2, y2, fill=self.theme.border, outline="")
+            elif shape_key == "rounded":
+                # 圆角矩形（用多个线段模拟）
+                r = 10
+                preview_canvas.create_rectangle(x1 + r, y1, x2 - r, y2, fill=self.theme.border, outline="")
+                preview_canvas.create_rectangle(x1, y1 + r, x2, y2 - r, fill=self.theme.border, outline="")
+            elif shape_key == "capsule":
+                # 胶囊形
+                r = (preview_height) // 2
+                preview_canvas.create_oval(x1, y1, x1 + preview_height, y2, fill=self.theme.border, outline="")
+                preview_canvas.create_rectangle(x1 + r, y1, x2 - r, y2, fill=self.theme.border, outline="")
+                preview_canvas.create_oval(x2 - preview_height, y1, x2, y2, fill=self.theme.border, outline="")
+
+            # 形状名称标签
+            preview_canvas.create_text(
+                preview_width // 2,
+                preview_height + 15,
+                text=shape_name,
+                font=("Arial", 9),
+                fill=self.theme.text_secondary
+            )
+
+            # 单选按钮
+            radio = tk.Radiobutton(
+                shape_buttons_frame,
+                text="",
+                variable=var,
+                value=shape_key,
+                command=lambda s=shape_key: self._on_shape_selected(s, selected_shape),
+                bg=self.theme.bg_hint,
+                selectcolor=self.theme.border,
+                activebackground=self.theme.bg_hint
+            )
+            radio.grid(row=1, column=i, padx=10)
+
+        # 图标选择区域
+        icon_label = ctk.CTkLabel(
+            main_container,
+            text="选择图标:",
+            font=("Arial", 12, "bold"),
+            text_color=self.theme.text_primary
+        )
+        icon_label.pack(anchor="w", pady=(5, 10))
+
+        # 图标网格（可滚动）
+        scroll_frame = ctk.CTkScrollableFrame(
+            main_container,
+            fg_color="transparent",
+            corner_radius=0,
+            scrollbar_button_color=self.theme.border,
+            scrollbar_button_hover_color=self.theme.text_hint,
+            height=200
+        )
+        scroll_frame.pack(fill="both", expand=True)
+
+        # 创建图标按钮网格
+        icons_per_row = 8
+        for idx, icon in enumerate(WIDGET_ICONS):
+            is_default = icon == template.icon_name
+            bg_color = self.theme.accent if is_default else self.theme.bg_input
+
+            icon_btn = ctk.CTkButton(
+                scroll_frame,
+                text=icon,
+                font=("Segoe UI Emoji", 24),
+                width=50,
+                height=50,
+                corner_radius=8,
+                fg_color=bg_color,
+                hover_color=self.theme.border,
+                command=lambda i=icon: self._on_icon_selected(dialog, selected_icon, i, [])
+            )
+            icon_btn.grid(row=idx // icons_per_row, column=idx % icons_per_row, padx=4, pady=4)
+
+        # 底部按钮
+        button_frame = ctk.CTkFrame(main_container, fg_color="transparent")
+        button_frame.pack(fill="x", pady=(15, 0))
+
+        cancel_btn = ctk.CTkButton(
+            button_frame,
+            text="取消",
+            width=100,
+            height=36,
+            corner_radius=8,
+            fg_color="#6B7280",
+            hover_color="#4B5563",
+            command=dialog.destroy
+        )
+        cancel_btn.pack(side="right", padx=5)
+
+        confirm_btn = ctk.CTkButton(
+            button_frame,
+            text="确认",
+            width=100,
+            height=36,
+            corner_radius=8,
+            fg_color=self.theme.accent,
+            hover_color="#FF8F00",
+            command=dialog.destroy
+        )
+        confirm_btn.pack(side="right", padx=5)
+
+        # 等待对话框关闭
+        self.root.wait_window(dialog)
+
+        # 如果用户取消了，返回None
+        return selected_icon[0], selected_shape[0]
+
+    def _on_icon_selected(self, dialog, selected_icon, icon, icon_buttons):
+        """处理图标选择"""
+        _ = dialog  # 保留用于未来可能的扩展
+        _ = icon_buttons  # 保留以便未来可能的扩展
+        selected_icon[0] = icon
+
+    def _on_shape_selected(self, shape, selected_shape):
+        """处理形状选择"""
+        selected_shape[0] = shape
 
     def _add_widget_to_list(self, template, widget, size="medium"):
         """在列表中添加组件记录"""
@@ -1389,6 +1846,17 @@ class DashWidgetsApp:
 
     def remove_widget(self, widget, card):
         """移除组件"""
+        try:
+            # 取消所有待处理的after回调（如果有）
+            if hasattr(widget, '_after_ids'):
+                for after_id in widget._after_ids:
+                    try:
+                        self.root.after_cancel(after_id)
+                    except:
+                        pass
+        except:
+            pass
+
         widget.window.destroy()
         card.destroy()
         self.active_widgets.remove(widget)
@@ -1516,8 +1984,7 @@ class DashWidgetsApp:
         ctk.CTkLabel(font_container, text="字体:", font=("Arial", 12)).pack(side="left")
 
         # 获取系统可用字体
-        import tkinter as tk
-        available_fonts = sorted(tk.font.families())
+        available_fonts = sorted(tkfont.families())
 
         # 筛选常用的中文字体
         font_options = [
@@ -1722,82 +2189,44 @@ class DashWidgetsApp:
             self._apply_theme()
         else:
             # 跟随系统
-            import platform
-            system = platform.system()
-            if system == "Darwin":  # macOS
-                try:
-                    import darkdetect
-                    mode = darkdetect.theme()
-                    is_dark = mode == "Dark"
-                    ctk.set_appearance_mode("dark" if is_dark else "light")
-                    self.light_mode = not is_dark
-                    self._apply_theme()
-                except:
-                    ctk.set_appearance_mode("light")
-                    self.light_mode = True
-                    self._apply_theme()
-            elif system == "Windows":
-                try:
-                    import winreg
-                    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Themes\Personalize')
-                    value, _ = winreg.QueryValueEx(key, 'AppsUseLightTheme')
-                    is_light = bool(value)
-                    ctk.set_appearance_mode("dark" if not is_light else "light")
-                    self.light_mode = is_light
-                    self._apply_theme()
-                    winreg.CloseKey(key)
-                except:
-                    ctk.set_appearance_mode("light")
-                    self.light_mode = True
-                    self._apply_theme()
-            else:
-                ctk.set_appearance_mode("light")
-                self.light_mode = True
-                self._apply_theme()
+            self._apply_system_theme()
+            self._apply_theme()
 
     def _change_font(self, font_name):
         """更改字体"""
-        global current_font_family
-
+        # 设置字体
         if font_name == "系统默认":
-            set_font_family(None)
+            set_font_family("系统默认")
         else:
             set_font_family(font_name)
 
-        # 重新创建所有桌面组件以应用新字体
+        logger.info(f"应用字体: {font_name}")
+
+        # 刷新所有桌面组件以应用新字体
         for widget in self.active_widgets:
             try:
-                # 保存当前窗口位置和大小
+                # 保存位置
                 x = widget.window.winfo_x()
                 y = widget.window.winfo_y()
-                width = widget.width
-                height = widget.height
 
-                # 销毁旧组件
-                widget.window.destroy()
+                # 清除所有内容
+                widget.canvas.delete("all")
 
-                # 重新创建组件
-                new_widget = DraggableWidget(self.root, widget.template, x, y, widget.size)
-                new_widget.width = width
-                new_widget.height = height
-                new_widget.window.geometry(f"{width}x{height}+{x}+{y}")
-                new_widget.canvas.config(width=width, height=height)
+                # 重新创建组件内容
+                widget._create_widget_content(widget.canvas, widget.width, widget.height)
 
-                # 更新引用
-                widget_list_index = self.active_widgets.index(widget)
-                self.active_widgets[widget_list_index] = new_widget
+                # 恢复位置
+                widget.window.geometry(f"+{x}+{y}")
 
-                # 更新列表中的引用（需要找到对应的卡片并更新）
-                # 这里简化处理，用户可以手动关闭并重新添加组件
+                # 如果是待办事项组件，需要重新渲染列表
+                if widget.template.name == "待办事项":
+                    widget._render_todo_list(widget.canvas, widget.width, widget.height)
+
             except Exception as e:
-                logger.warning(f"重新创建组件时出错: {e}")
-                ctk.set_appearance_mode("light")
-                self.light_mode = True
-                self._apply_theme()
-            else:
-                    ctk.set_appearance_mode("light")
-                    self.light_mode = True
-                    self._apply_theme()
+                logger.warning(f"刷新组件字体时出错: {e}")
+
+        from tkinter import messagebox
+        messagebox.showinfo("字体已更改", f"字体已更改为: {font_name}\n所有组件已更新！", parent=self.root)
 
     def _apply_theme(self):
         """应用主题到所有组件"""
@@ -1818,11 +2247,18 @@ class DashWidgetsApp:
         # 恢复窗口大小
         self.root.geometry(geometry)
 
-        # 刷新所有桌面组件的背景
+        # 液态玻璃效果颜色
+        glass_bg_light = "#FFFFFFD9"  # 半透明白色
+        glass_bg_dark = "#1E293B99"   # 半透明深蓝色
+        glass_border_light = "#BFDBFE"
+        glass_border_dark = "#3B82F6"
+
+        # 刷新所有桌面组件的背景 - 液态玻璃效果
         for widget in self.active_widgets:
             if hasattr(widget, 'canvas'):
-                bg_color = self.theme.bg_card if self.light_mode else "#2C2C2E"
-                widget.canvas.configure(bg=bg_color)
+                bg_color = glass_bg_light if self.light_mode else glass_bg_dark
+                border_color = glass_border_light if self.light_mode else glass_border_dark
+                widget.canvas.configure(bg=bg_color, highlightbackground=border_color)
                 # 更新组件内文字颜色
                 self._update_widget_colors(widget)
 
@@ -1833,6 +2269,13 @@ class DashWidgetsApp:
         if messagebox.askyesno("确认", "确定要清除所有桌面组件吗？", parent=self.root):
             for widget in self.active_widgets[:]:
                 try:
+                    # 取消所有待处理的after回调（如果有）
+                    if hasattr(widget, '_after_ids'):
+                        for after_id in widget._after_ids:
+                            try:
+                                self.root.after_cancel(after_id)
+                            except:
+                                pass
                     widget.window.destroy()
                 except:
                     pass
@@ -1854,35 +2297,48 @@ class DashWidgetsApp:
                 )
                 self.welcome_label.pack(pady=30)
 
-            from tkinter import messagebox
             messagebox.showinfo("成功", "已清除所有桌面组件")
 
     def _save_settings(self, settings_window):
         """保存设置"""
-        # TODO: 实现设置持久化保存到配置文件
+        font_name = self.font_menu.get() if hasattr(self, 'font_menu') else "系统默认"
+
         settings = {
             "auto_start": self.auto_start_switch.get(),
             "theme": self.theme_menu.get(),
             "refresh_interval": int(self.refresh_slider.get()),
-            "opacity": int(self.opacity_slider.get())
+            "opacity": int(self.opacity_slider.get()),
+            "font": font_name
         }
 
-        logger.info(f"保存设置: {settings}")
+        # 创建数据目录
+        data_dir = Path.home() / ".dashwidgets"
+        data_dir.mkdir(exist_ok=True)
 
-        from tkinter import messagebox
-        messagebox.showinfo("设置已保存", "设置已成功保存！", parent=settings_window)
+        # 保存设置到文件
+        settings_file = data_dir / "settings.json"
+        try:
+            with open(settings_file, 'w', encoding='utf-8') as f:
+                json.dump(settings, f, ensure_ascii=False, indent=2)
+            logger.info(f"保存设置: {settings}")
+
+            from tkinter import messagebox
+            messagebox.showinfo("设置已保存", "设置已成功保存！", parent=settings_window)
+        except Exception as e:
+            logger.error(f"保存设置失败: {e}")
+            from tkinter import messagebox
+            messagebox.showerror("错误", f"保存设置失败: {e}", parent=settings_window)
+
         settings_window.destroy()
 
     def _update_widget_colors(self, widget):
-        """更新桌面组件的颜色以匹配主题"""
+        """更新桌面组件的颜色以匹配液态玻璃主题"""
         if not hasattr(widget, 'canvas'):
             return
 
-        text_color = self.theme.text_primary if self.light_mode else "#FFFFFF"
-        secondary_color = self.theme.text_secondary if self.light_mode else "#A1A1A6"
-
         # 更新时钟组件
         if widget.template.name == "时钟":
+            text_color = self.theme.text_primary if self.light_mode else "#F1F5F9"
             if hasattr(widget, 'time_text'):
                 widget.canvas.itemconfig(widget.time_text, fill=text_color)
 
@@ -1890,8 +2346,6 @@ class DashWidgetsApp:
         elif widget.template.name == "待办事项":
             # 重新渲染待办列表
             widget._render_todo_list(widget.canvas, widget.width, widget.height)
-
-        # 系统监控组件会在下次刷新时自动更新颜色
 
     def show_about_dialog(self):
         """显示关于对话框"""
@@ -1969,13 +2423,18 @@ class DashWidgetsApp:
 
             # 定义菜单项
             def show_window(icon, item):
+                _ = icon  # 未使用，保留以兼容接口
+                _ = item  # 未使用，保留以兼容接口
                 self.root.deiconify()
                 self.root.lift()
 
             def hide_window(icon, item):
+                _ = icon  # 未使用，保留以兼容接口
+                _ = item  # 未使用，保留以兼容接口
                 self.root.withdraw()
 
             def quit_app(icon, item):
+                _ = item  # 未使用，保留以兼容接口
                 self.root.quit()
                 icon.stop()
 
@@ -2020,8 +2479,6 @@ class DashWidgetsApp:
         image = Image.new('RGB', (64, 64), color='#007AFF')
 
         # 简单的"DW"文字
-        from PIL import ImageDraw, ImageFont
-
         draw = ImageDraw.Draw(image)
 
         # 绘制圆角矩形背景
@@ -2029,7 +2486,11 @@ class DashWidgetsApp:
 
         # 绘制文字
         try:
-            font = ImageFont.truetype(str(LOGO_PATH.parent / "fonts" / "HarmonyOS_Sans_SC_Regular.ttf"), 24)
+            font_path = FONTS_PATH / "HarmonyOS_Sans_SC_Regular.ttf"
+            if font_path.exists():
+                font = ImageFont.truetype(str(font_path), 24)
+            else:
+                font = ImageFont.load_default()
         except:
             font = ImageFont.load_default()
 
@@ -2052,7 +2513,10 @@ class DashWidgetsApp:
         finally:
             # 清理托盘图标
             if self.tray_icon:
-                self.tray_icon.stop()
+                try:
+                    self.tray_icon.stop()
+                except Exception as e:
+                    logger.warning(f"停止托盘图标时出错: {e}")
 
 
 def main_window():
